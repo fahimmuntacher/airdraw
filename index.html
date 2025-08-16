@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✍️ AirDraw (Hand + Pointer)</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    h1 { margin: 10px; }
+    #container {
+      position: relative;
+      display: inline-block;
+    }
+    video, canvas {
+      border: 2px solid white;
+      border-radius: 10px;
+    }
+    #drawCanvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+  </style>
+  <!-- MediaPipe Hands -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+<body>
+  <h1>✍️ AirDraw with Pointer</h1>
+
+  <div id="container">
+    <!-- Webcam (hidden) -->
+    <video id="video" autoplay playsinline style="display:none;"></video>
+
+    <!-- Video + Pointer -->
+    <canvas id="videoCanvas" width="640" height="480"></canvas>
+
+    <!-- Drawing Layer -->
+    <canvas id="drawCanvas" width="640" height="480"></canvas>
+  </div>
+
+  <script>
+    const video = document.getElementById("video");
+    const videoCanvas = document.getElementById("videoCanvas");
+    const videoCtx = videoCanvas.getContext("2d");
+
+    const drawCanvas = document.getElementById("drawCanvas");
+    const drawCtx = drawCanvas.getContext("2d");
+
+    let drawing = false;
+    let lastX = null, lastY = null;
+
+    // Setup MediaPipe Hands
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+    hands.onResults(onResults);
+
+    // Camera
+    const camera = new Camera(video, {
+      onFrame: async () => {
+        await hands.send({ image: video });
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+
+    function onResults(results) {
+      videoCtx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+
+      // Show video background
+      videoCtx.drawImage(results.image, 0, 0, videoCanvas.width, videoCanvas.height);
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        
+        // Index fingertip
+        const x = landmarks[8].x * videoCanvas.width;
+        const y = landmarks[8].y * videoCanvas.height;
+
+        // Draw pointer
+        videoCtx.beginPath();
+        videoCtx.arc(x, y, 8, 0, 2 * Math.PI);
+        videoCtx.fillStyle = "red";
+        videoCtx.fill();
+
+        // Thumb tip
+        const thumbX = landmarks[4].x * videoCanvas.width;
+        const thumbY = landmarks[4].y * videoCanvas.height;
+        const dist = Math.hypot(x - thumbX, y - thumbY);
+
+        // Pinch detection
+        if (dist < 40) {
+          drawing = true;
+        } else {
+          drawing = false;
+          lastX = null;
+          lastY = null;
+        }
+
+        // Draw on drawing canvas
+        if (drawing) {
+          if (lastX != null && lastY != null) {
+            drawCtx.beginPath();
+            drawCtx.moveTo(lastX, lastY);
+            drawCtx.lineTo(x, y);
+            drawCtx.strokeStyle = "lime";
+            drawCtx.lineWidth = 3;
+            drawCtx.stroke();
+          }
+          lastX = x;
+          lastY = y;
+        }
+      }
+    }
+  </script>
+</body>
+</html>

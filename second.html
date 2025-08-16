@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 AirDraw (Hand + Eye Control)</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    h1 { margin-bottom: 10px; }
+    canvas {
+      border: 2px solid white;
+      background: black;
+    }
+    video { display: none; }
+    .mode-box {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #444;
+      color: white;
+    }
+    button.active { background: #e91e63; }
+    #pointer {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid yellow;
+      background: rgba(255, 255, 0, 0.3);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>✍️ AirDraw (Hand + Eye Control)</h1>
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+  <div id="pointer"></div>
+
+  <div class="mode-box">
+    <button onclick="setMode('draw')" id="drawBtn" class="active">✏️ Draw</button>
+    <button onclick="setMode('pointer')" id="pointerBtn">👆 Pointer</button>
+    <button onclick="setMode('rainbow')" id="rainbowBtn">🌈 Rainbow</button>
+    <button onclick="setMode('eraser')" id="eraserBtn">🖌 Eraser</button>
+  </div>
+
+  <script type="module">
+    // import * as mpHolistic from 'https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js';
+    // import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
+
+    // const video = document.getElementById("video");
+    // const canvas = document.getElementById("canvas");
+    // const ctx = canvas.getContext("2d");
+    // const pointer = document.getElementById("pointer");
+
+    // let drawing = false;
+    // let lastX = 0, lastY = 0;
+    // let mode = "draw";
+
+    // function setMode(newMode) {
+    //   mode = newMode;
+    //   document.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
+    //   if(newMode === "draw") document.getElementById("drawBtn").classList.add("active");
+    //   if(newMode === "pointer") document.getElementById("pointerBtn").classList.add("active");
+    //   if(newMode === "rainbow") document.getElementById("rainbowBtn").classList.add("active");
+    //   if(newMode === "eraser") document.getElementById("eraserBtn").classList.add("active");
+    // }
+
+    // function randomColor() {
+    //   return `hsl(${Math.floor(Math.random()*360)}, 100%, 50%)`;
+    // }
+
+    // function isBlink(landmarks) {
+    //   if(!landmarks) return false;
+    //   const leftEyeTop = landmarks[159].y;
+    //   const leftEyeBottom = landmarks[145].y;
+    //   const rightEyeTop = landmarks[386].y;
+    //   const rightEyeBottom = landmarks[374].y;
+
+    //   const leftEyeOpen = Math.abs(leftEyeTop - leftEyeBottom);
+    //   const rightEyeOpen = Math.abs(rightEyeTop - rightEyeBottom);
+
+    //   return (leftEyeOpen < 0.01 && rightEyeOpen < 0.01);
+    // }
+
+    // function onResults(results) {
+    //   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    //   if (results.faceLandmarks && isBlink(results.faceLandmarks)) {
+    //     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    //     return;
+    //   }
+
+    //   if (results.leftHandLandmarks) {
+    //     const indexFinger = results.leftHandLandmarks[8];
+    //     const x = indexFinger.x * canvas.width;
+    //     const y = indexFinger.y * canvas.height;
+
+    //     pointer.style.left = `${x}px`;
+    //     pointer.style.top = `${y}px`;
+
+    //     if(mode !== "pointer") {
+    //       ctx.beginPath();
+    //       ctx.moveTo(lastX, lastY);
+
+    //       if(mode === "draw") ctx.strokeStyle = "lime";
+    //       if(mode === "rainbow") ctx.strokeStyle = randomColor();
+    //       if(mode === "eraser") ctx.strokeStyle = "black";
+
+    //       ctx.lineWidth = (mode === "eraser") ? 20 : 3;
+    //       ctx.lineTo(x, y);
+    //       ctx.stroke();
+    //       ctx.closePath();
+    //     }
+
+    //     lastX = x; lastY = y;
+    //   }
+    // }
+
+    // const holistic = new mpHolistic.Holistic({ locateFile: (file) => 
+    //   `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+    // });
+
+    // holistic.setOptions({
+    //   modelComplexity: 1,
+    //   smoothLandmarks: true,
+    //   enableSegmentation: false,
+    //   refineFaceLandmarks: true,
+    //   minDetectionConfidence: 0.7,
+    //   minTrackingConfidence: 0.7
+    // });
+
+    // holistic.onResults(onResults);
+
+    // const camera = new Camera(video, {
+    //   onFrame: async () => { await holistic.send({ image: video }); },
+    //   width: 640, height: 480
+    // });
+    // camera.start();
+  function startCamera() {
+  navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+    video.srcObject = stream;
+  });
+}
+
+function onResults(results) {
+  ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+  // --- HAND TRACKING ---
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const landmarks = results.multiHandLandmarks[0];
+
+    const x = landmarks[8].x * canvas.width;   // index finger tip
+    const y = landmarks[8].y * canvas.height;
+
+    // draw pointer
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = "red";
+    ctx.fill();
+
+    if (isDrawing) {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+  }
+
+  // --- EYE BLINK DETECTION ---
+  if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+    const face = results.multiFaceLandmarks[0];
+    const leftEye = face[159].y - face[145].y;
+    const rightEye = face[386].y - face[374].y;
+
+    if (leftEye < 0.015 && rightEye < 0.015) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // clear on blink
+    }
+  }
+}
+
+  </script>
+</body>
+</html>
